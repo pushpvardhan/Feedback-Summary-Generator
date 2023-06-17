@@ -2,13 +2,14 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-import transformers
-from transformers import AutoModel, BertTokenizerFast
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import AdamW
+from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
+from sympy.physics.units import time
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.throughput_benchmark import format_time
+from transformers import AdamW
+from transformers import AutoModel, BertTokenizerFast
 
 from BERT_Arch import BERT_Arch
 
@@ -18,26 +19,23 @@ print(df.to_string())
 df1 = df.drop(['Options'], axis=1)
 print(df1.to_string())
 
-train_criteria, temp_criteria, train_select_option, temp_select_option, train_example, temp_example, train_summary, temp_summary = train_test_split(
-    df1['Criteria'], df1['Select Option'], df1['Cite Examples and Additional Comments - As Applicable.'],
-    df1['Overall Summary'], random_state=42, train_size=0.75, stratify=df1['Overall Summary'])
+x = np.array([df1['Criteria'], df1['Select Option'], df1['Cite Examples and Additional Comments - As Applicable.']])
+x = x.transpose()
+y = np.array(df1['Overall Summary'])
 
-val_criteria, test_criteria, val_select_option, test_select_option, val_example, test_example, val_summary, test_summary = train_test_split(
-    temp_criteria, temp_select_option, temp_example, temp_summary,
-    random_state=2018,
+train_X, temp_X, train_summary, temp_summary = train_test_split(x, y, random_state=42, train_size=0.75, stratify=df1['Overall Summary'])
+
+val_X, test_X, val_summary, test_summary = train_test_split(temp_X, temp_summary, random_state=2018,
     test_size=0.5,
     stratify=temp_summary)
 
 bert = AutoModel.from_pretrained('bert-base-uncased')
 
-tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased');
 
-tokens_train = tokenizer.batch_encode_plus(train_criteria.to_list(), train_select_option.to_lisst(),
-                                           train_example.to_list(), truncation=True, padding=True)
-tokens_test = tokenizer.batch_encode_plus(test_criteria.to_list(), test_select_option.to_lisst(),
-                                          test_example.to_list(), truncation=True, padding=True)
-tokens_val = tokenizer.batch_encode_plus(val_criteria.to_list(), val_select_option.to_lisst(), val_example.to_list(),
-                                         truncation=True, padding=True)
+tokens_train = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
+tokens_test = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
+tokens_val = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
 
 train_seq = torch.tensor(tokens_train['input_ids'])
 train_mask = torch.tensor(tokens_train['attention_mask'])
@@ -84,7 +82,7 @@ optimizer = AdamW(model.parameters(), lr=1e-5)
 class_weights = compute_class_weight('balanced', classes=np.unique(train_summary), y=train_summary)
 print("Class Weights:", class_weights)
 
-weights= torch.tensor(class_weights,dtype=torch.float)
+weights = torch.tensor(class_weights, dtype=torch.float)
 
 # push to GPU
 weights = weights.to(device)
@@ -153,7 +151,7 @@ def train():
     return avg_loss, total_preds
 
 
-def evaluate():
+def evaluate(t0=None):
     print("\nEvaluating...")
 
     # deactivate dropout layers
