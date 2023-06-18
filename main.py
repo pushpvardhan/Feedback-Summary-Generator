@@ -15,38 +15,87 @@ from BERT_Arch import BERT_Arch
 
 device = torch.device("cuda")
 df = pd.read_excel("Peer Form 1.xlsx")
-print(df.to_string())
+# print(df.to_string())
 df1 = df.drop(['Options'], axis=1)
-print(df1.to_string())
+# print(df1.to_string())
 
-x = np.array([df1['Criteria'], df1['Select Option'], df1['Cite Examples and Additional Comments - As Applicable.']])
-x = x.transpose()
-y = np.array(df1['Overall Summary'])
 
-train_X, temp_X, train_summary, temp_summary = train_test_split(x, y, random_state=42, train_size=0.75, stratify=df1['Overall Summary'])
+# df1['Criteria'] = df1['Criteria'].astype('category')
+# df1['Select Option'] = df1['Select Option'].astype('category')
+# df1['Cite Examples and Additional Comments - As Applicable.'] = df1['Cite Examples and Additional Comments - As Applicable.'].astype('category')
+df1['Overall Summary'] = df1['Overall Summary'].astype('category')
 
-val_X, test_X, val_summary, test_summary = train_test_split(temp_X, temp_summary, random_state=2018,
-    test_size=0.5,
-    stratify=temp_summary)
+# df1['Criteria'] = df1['Criteria'].cat.codes
+# df1['Select Option'] = df1['Select Option'].cat.codes
+# df1['Cite Examples and Additional Comments - As Applicable.'] = df1['Cite Examples and Additional Comments - As Applicable.'].cat.codes
+df1['Overall Summary'] = df1['Overall Summary'].cat.codes
+# print(df1.to_string())
+
+# print(df1.iloc)
+print("**************************")
+# print(df1.iloc[0])
+
+train_X, temp_X, train_summary, temp_summary = train_test_split(df1.iloc[:,[3, 4, 5]], df1.iloc[:,6], random_state=0, train_size=0.5, stratify=df1.iloc[:,6])
+print(train_X)
+val_X, test_X, val_summary, test_summary = train_test_split(temp_X, temp_summary, random_state=0,
+    test_size=0.5)
+    # stratify=temp_summary.iloc[:,0])
 
 bert = AutoModel.from_pretrained('bert-base-uncased')
 
-tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased');
+tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
 
-tokens_train = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
-tokens_test = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
-tokens_val = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
+tokens_train_criteria = tokenizer.batch_encode_plus(train_X['Criteria'].to_list(), truncation=True, padding=True)
+tokens_train_option = tokenizer.batch_encode_plus(train_X['Select Option'].to_list(), truncation=True, padding=True)
+tokens_train_example = tokenizer.batch_encode_plus(train_X['Cite Examples and Additional Comments - As Applicable.'].to_list(), truncation=True, padding=True)
+# print(tokens_train)
+tokens_test_criteria = tokenizer.batch_encode_plus(train_X['Criteria'].to_list(), truncation=True, padding=True)
+tokens_test_option = tokenizer.batch_encode_plus(train_X['Select Option'].to_list(), truncation=True, padding=True)
+tokens_test_example = tokenizer.batch_encode_plus(train_X['Cite Examples and Additional Comments - As Applicable.'].to_list(), truncation=True, padding=True)
+# tokens_test = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
+tokens_val_criteria = tokenizer.batch_encode_plus(train_X['Criteria'].to_list(), truncation=True, padding=True)
+tokens_val_option = tokenizer.batch_encode_plus(train_X['Select Option'].to_list(), truncation=True, padding=True)
+tokens_val_example = tokenizer.batch_encode_plus(train_X['Cite Examples and Additional Comments - As Applicable.'].to_list(), truncation=True, padding=True)
+# tokens_val = tokenizer.batch_encode_plus(train_X.to_list(), truncation=True, padding=True)
+print('****************************************')
+print(tokens_train_criteria)
+print('****************************************')
+print(tokens_train_option)
+print('****************************************')
+print(tokens_train_example)
+print('****************************************')
 
-train_seq = torch.tensor(tokens_train['input_ids'])
-train_mask = torch.tensor(tokens_train['attention_mask'])
+
+train_seq_criteria = torch.tensor(tokens_train_criteria['input_ids'])
+train_seq_option = torch.tensor(tokens_train_option['input_ids'])
+train_seq_example = torch.tensor(tokens_train_example['input_ids'])
+train_seq = torch.cat((train_seq_criteria, train_seq_option, train_seq_example), 1)
+print(train_seq)
+# train_seq = torch.cat(train_seq, out=)
+train_mask_criteria = torch.tensor(tokens_train_criteria['attention_mask'])
+train_mask_option = torch.tensor(tokens_train_option['attention_mask'])
+train_mask_example = torch.tensor(tokens_train_example['attention_mask'])
+train_mask = torch.cat((train_mask_criteria, train_mask_option, train_mask_example), 1)
 train_y = torch.tensor(train_summary.tolist())
 
-val_seq = torch.tensor(tokens_val['input_ids'])
-val_mask = torch.tensor(tokens_val['attention_mask'])
+val_seq_criteria = torch.tensor(tokens_val_criteria['input_ids'])
+val_seq_option = torch.tensor(tokens_val_option['input_ids'])
+val_seq_example = torch.tensor(tokens_val_example['input_ids'])
+val_seq = torch.cat((val_seq_criteria, val_seq_option, val_seq_example), 1)
+val_mask_criteria = torch.tensor(tokens_val_criteria['attention_mask'])
+val_mask_option = torch.tensor(tokens_val_option['attention_mask'])
+val_mask_example = torch.tensor(tokens_val_example['attention_mask'])
+val_mask = torch.cat((val_mask_criteria, val_mask_option, val_mask_example), 1)
 val_y = torch.tensor(val_summary.tolist())
 
-test_seq = torch.tensor(tokens_test['input_ids'])
-test_mask = torch.tensor(tokens_test['attention_mask'])
+test_seq_criteria = torch.tensor(tokens_test_criteria['input_ids'])
+test_seq_option = torch.tensor(tokens_test_option['input_ids'])
+test_seq_example = torch.tensor(tokens_test_example['input_ids'])
+test_seq = torch.cat((test_seq_criteria, test_seq_option, test_seq_example), 1)
+test_mask_criteria = torch.tensor(tokens_test_criteria['attention_mask'])
+test_mask_option = torch.tensor(tokens_test_option['attention_mask'])
+test_mask_example = torch.tensor(tokens_test_example['attention_mask'])
+test_mask = torch.cat((test_mask_criteria, test_mask_option, test_mask_example), 1)
 test_y = torch.tensor(test_summary.tolist())
 
 batch_size = 32
